@@ -19,33 +19,47 @@ def init_cityscapes(cityscapes_root):
     sys.path.append(os.path.join(cityscapes_scipts_dir, 'helpers'))
 
 
-def load_images_from_folder(cityscapes_root, subset, downscale_factor = 1):
+def image_names(cityscapes_root, subset, citynames=False):
     '''
-    Load a specific subset from the cityscape dataset, optionally downscale the images.
+    Retrieve all image filenames for a specific subset from the cityscape dataset.
     - `cityscapes_root` the root folder of the dataset.
-    - `subset` the subset to be loaded can be one of train, test, val, train_extra.
-    - `downscale_factor` the factor with which the images will be downscaled.
-
-    Returns the a list of cities, the image filenames and the images.
+    - `subset` the subset to be loaded can be one of `train`, `test`, `val`, `train_extra`.
     '''
-    image_folder = os.path.join(cityscapes_root,'leftImg8bit', subset)
-    city_names = []
-    image_names = []
-    images = []
-
-    #Get all the subfolders
-    city_folders = [c for c in os.listdir(image_folder) if os.path.isdir(os.path.join(image_folder,c))]
+    image_folder = os.path.join(cityscapes_root, 'leftImg8bit', subset)
+    cnames = []
+    inames = []
 
     #Get all the images in the subfolders
-    for c in city_folders:
-        city_folder = os.path.join(image_folder, c)
-        for i in [i for i in os.listdir(city_folder) if os.path.isfile(os.path.join(city_folder,i))]:
-            city_names.append(c)
-            image_names.append(os.path.join(city_folder,i))
-            im = cv2.imread(image_names[-1])[:,:,::-1]
-            images.append(cv2.resize(im,(im.shape[1]//downscale_factor, im.shape[0]//downscale_factor)))
+    for city in os.listdir(image_folder):
+        city_folder = os.path.join(image_folder, city)
 
-    return city_names, image_names, images
+        for fname in os.listdir(city_folder):
+            if fname.endswith('.png'):
+                inames.append(os.path.join(city_folder, fname))
+                cnames.append(city)
+
+    return (inames, cnames) if citynames else inames
+
+
+def load_images(image_names, downscale_factor=1):
+    '''
+    Load all images for a set of image names as returned by `image_names`, optionally downscale the images.
+    - `image_names` the list of image names to load.
+    - `downscale_factor` the factor with which the images will be downscaled.
+
+    Returns the images in an uint8 array of shape (N,3,H,W).
+    '''
+    H, W = 1024//downscale_factor, 2048//downscale_factor
+    X = np.empty((len(image_names), 3, H, W), np.uint8)
+
+    #Get all the images in the subfolders
+    for i, imname in enumerate(image_names):
+        im = cv2.imread(imname)
+        if downscale_factor != 1:
+            im = cv2.resize(im, (W, H))
+        X[i] = np.rollaxis(im[:,:,::-1], 2)  # cv2 to theano (BGR to RGB and HWC to CHW)
+
+    return X
 
 
 def downscale_labels(factor, labels, threshold, dtype=np.int8):
