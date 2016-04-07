@@ -62,41 +62,45 @@ def load_images(image_names, downscale_factor=1):
     return X
 
 
-def downscale_labels(factor, labels, threshold, dtype=np.int8):
+def downscale_labels(labels, f, threshold, dtype=np.int8):
     '''
     Downscale a label image. Each `factor`x`factor` window will be mapped to a single pixel.
     If the the majority label does not have a percentage over the `threshold` the pixel will
     be mapped to -1.
-    - `factor` the factor with which the images will be downscaled.
     - `labels` the input labels.
+    - `f` the factor with which the images will be downscaled. Can be an integer or a (y,x) tuple.
     - `threshold` the required part of the majority be a valid label [0.0, 1.0].
     - `dtype` the datatype of the returned label array. The default allows labels up to 128.
     '''
+    fy, fx = f if isinstance(f, (list, tuple)) else (f,f)
+    H,W = labels.shape
+    assert (H % fy) == 0 and (W % fx) == 0, "image size must be divisible by factor!"
+    h,w = H//fy, W//fx
+
     m = np.min(labels)
     M = np.max(labels)
-    if m < -1:
-        raise Exception('Labels should not have values below -1')
-    h,w = labels.shape
-    h_n = int(np.ceil(float(h)/factor))
-    w_n = int(np.ceil(float(w)/factor))
-    label_sums = np.zeros((h_n, w_n, M+2))
-    for y in xrange(0, h):
-        for x in xrange(0, w):
-            label_sums[y/factor, x/factor, labels[y,x]] +=1
+    assert -1 <= m, 'Labels should not have values below -1'
 
-    hit_counts = np.sum(label_sums,2)
+    # Count the number of occurences of the labels in each "fy x fx cell"
+    label_sums = np.zeros((h, w, M+2))
+    mx, my = np.meshgrid(np.arange(w), np.arange(h))
+    for dy in range(fy):
+        for dx in range(fx):
+            label_sums[my, mx, labels[dy::fy,dx::fx]] += 1
+    label_sums = label_sums[:,:,:-1]  # "Don't know" don't count
 
-    label_sums = label_sums[:,:,:-1]
+    # Use the highest-occurence label
     new_labels = np.argsort(label_sums, 2)[:,:,-1].astype(dtype)
-    counts = label_sums.reshape(h_n*w_n, M+1)
-    counts = counts[np.arange(h_n*w_n),new_labels.flat]
-    counts = counts.reshape((h_n, w_n))
 
-    hit_counts *=threshold
+    # But turn "uncertain" cells into "don't know" label.
+    counts = label_sums[my, mx, new_labels]
+    hit_counts = np.sum(label_sums, 2) * threshold
     new_labels[counts < hit_counts] = -1
+
     return new_labels
 
-def load_labels(image_names, downscale_factor = None, label_downscale_threshold = 0.0, fine=True):
+
+def load_labels(image_names, fine=True, downscale_factor=None, label_downscale_threshold=0.0):
     '''
     Load all label images for a set of rgb image names.
     `image_names` the rgb image names for which the ground truth labels should be loaded.
@@ -110,17 +114,19 @@ def load_labels(image_names, downscale_factor = None, label_downscale_threshold 
     #Create a map to map between loaded labels and training labels.
     label_map = np.asarray([t.trainId if t.trainId != 255 else -1 for t in cs_labels.labels], dtype=np.int8)
 
-    labels = []
-    #Find the corresponding label images
-    for l in image_names:
-        l = l.replace('leftImg8bit', 'gtFine' if fine else 'gtCoarse',1)
-        l = l.replace('leftImg8bit', 'gtFine_labelIds' if fine else 'gtCoarse_labelIds')
-        l_im = cv2.imread(l, IMREAD_UNCHANGED)
-        if l_im is None:
-            raise ValueError("Couldn't load image {}".format(l))
-        l_im_mapped = label_map[l_im]
-        if downscale_factor is not None:
-            l_im_mapped = downscale_labels(downscale_factor, l_im_mapped, label_downscale_threshold)
-        labels.append(l_im_mapped)
+    H, W = 1024//(downscale_factor or 1), 2048//(downscale_factor or 1)
+    y = np.empty((len(image_names), H, W), np.int8)
 
-    return labels
+    #Find the corresponding label images
+    for i, name in enumerate(image_names):
+        name = name.replace('leftImg8bit', 'gtFine' if fine else 'gtCoarse',1)
+        name = name.replace('leftImg8bit', 'gtFine_labelIds' if fine else 'gtCoarse_labelIds')
+        im = cv2.imread(name, IMREAD_UNCHANGED)
+        if im is None:
+            raise ValueError("Couldn't load image {}".format(name))
+        im_mapped = label_map[im]
+        if downscale_factor is not None:
+            im_mapped = downscale_labels(im_mapped, downscale_factor, label_downscale_threshold)
+        y[i] = im_mapped
+
+    return y
