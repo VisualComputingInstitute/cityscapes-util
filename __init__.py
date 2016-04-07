@@ -2,6 +2,12 @@ import numpy as np
 import cv2
 import os
 
+try:
+    IMREAD_UNCHANGED = cv2.CV_LOAD_IMAGE_UNCHANGED
+except AttributeError:
+    IMREAD_UNCHANGED = cv2.IMREAD_UNCHANGED
+
+
 def init_cityscapes(cityscapes_root):
     '''
     Append the right paths to the sys paths in order to use the provided cityscapes scripts.
@@ -95,7 +101,7 @@ def load_labels(image_names, downscale_factor = None, label_downscale_threshold 
     for l in image_names:
         l = l.replace('leftImg8bit', 'gtFine' if fine else 'gtCoarse',1)
         l = l.replace('leftImg8bit', 'gtFine_labelIds' if fine else 'gtCoarse_labelIds')
-        l_im = cv2.imread(l, cv2.CV_LOAD_IMAGE_UNCHANGED)
+        l_im = cv2.imread(l, IMREAD_UNCHANGED)
         if l_im is None:
             raise ValueError("Couldn't load image {}".format(l))
         l_im_mapped = label_map[l_im]
