@@ -95,7 +95,7 @@ def downscale_labels(labels, f, threshold, dtype=np.int8):
     # But turn "uncertain" cells into "don't know" label.
     counts = label_sums[my, mx, new_labels]
     hit_counts = np.sum(label_sums, 2) * threshold
-    new_labels[counts < hit_counts] = -1
+    new_labels[counts <= hit_counts] = -1
 
     return new_labels
 
