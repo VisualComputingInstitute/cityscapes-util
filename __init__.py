@@ -56,7 +56,7 @@ def load_images(image_names, downscale_factor=1):
     for i, imname in enumerate(image_names):
         im = cv2.imread(imname)
         if downscale_factor != 1:
-            im = cv2.resize(im, (W, H))
+            im = cv2.resize(im, (W, H), interpolation=cv2.INTER_AREA)
         X[i] = np.rollaxis(im[:,:,::-1], 2)  # cv2 to theano (BGR to RGB and HWC to CHW)
 
     return X
