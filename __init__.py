@@ -130,3 +130,8 @@ def load_labels(image_names, fine=True, downscale_factor=None, label_downscale_t
         y[i] = im_mapped
 
     return y
+
+
+def upsample(im, factor):
+    """ Very fast upsampling of two last axes of `im`age by integer `factor`. """
+    return np.repeat(np.repeat(im, factor, axis=-1), factor, axis=-2)
