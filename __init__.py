@@ -81,6 +81,10 @@ def downscale_labels(labels, f, threshold, dtype=np.int8):
     M = np.max(labels)
     assert -1 <= m, 'Labels should not have values below -1'
 
+    # Oh come on now `troisdorf_000000_000073_gtCoarse_labelIds` you little cunt.
+    if m == M:
+        return np.full((h,w), m, dtype)
+
     # Count the number of occurences of the labels in each "fy x fx cell"
     label_sums = np.zeros((h, w, M+2))
     mx, my = np.meshgrid(np.arange(w), np.arange(h))
