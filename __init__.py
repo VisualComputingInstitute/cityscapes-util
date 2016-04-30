@@ -147,3 +147,44 @@ def load_labels(image_names, fine=True, preprocess=None):
     return y
 
 
+def label_names():
+    from labels import labels
+
+    mapping = {l.trainId: l.name for l in labels}
+    mapping[255] = mapping[-1] = 'ignore'
+
+    return [mapping[i] for i in range(19)] + [mapping[-1]]
+
+
+def translate(imgs, mapping, remaining=-1, output=None):
+    """
+    Given an array `imgs` and an iterable of pairs `(a,b)` in `mapping`,
+    this translates all `a`s present in `imgs` into `b`s and all remaining
+    entries into `remaining`s. Optionally write the result into the existing
+    `output` array.
+    """
+    if output is None:
+        output = np.full_like(imgs, remaining)
+    else:
+        output[:] = remaining
+
+    for src, dst in mapping:
+        output[imgs==src] = dst
+
+    return output
+
+
+def id2trainId(im, unk=-1):
+    # Yeah, manually bitch.
+    # It's not like they will change these numbers anytime soon, that'd be silly.
+    mapping = np.array([unk, unk, unk, unk, unk, unk, unk,  0,   1, unk,
+                        unk,   2,   3,   4, unk, unk, unk,  5, unk,   6,
+                          7,   8,   9,  10,  11,  12,  13, 14,  15, unk,
+                        unk,  16,  17,  18, unk], dtype=np.int8)
+    return mapping[np.minimum(im, len(mapping)-1)]  # clamping to map 255 to the last -1 up here.
+
+
+def trainId2id(im, unk=0):
+    # See `id2trainId` comment.
+    mapping = np.array([7, 8, 11, 12, 13, 17, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 31, 32, 33, unk], dtype=np.uint8)
+    return mapping[np.minimum(im, len(mapping)-1)]  # clamping to map 255 to `unk` up here.
