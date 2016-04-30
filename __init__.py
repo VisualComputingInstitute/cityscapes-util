@@ -109,13 +109,13 @@ def upsample(im, factor):
     return np.repeat(np.repeat(im, factor, axis=-1), factor, axis=-2)
 
 
-def load_labels(image_names, fine=True, downscale_factor=None, label_downscale_threshold=0.0):
+def load_labels(image_names, fine=True, preprocess=None):
     '''
     Load all label images for a set of rgb image names.
-    `image_names` the rgb image names for which the ground truth labels should be loaded.
-    `downscale_factor` the factor with which the labels are downscaled. None results in the orignal size.
-    `label_downscale_threshold` the majority label ratio needed in order to achieve a valid label.
-    `fine` wether to load the fine labels (True), or the coarse labels (False). Fine labels are only available for a subset.
+    - `image_names` the rgb image names for which the ground truth labels should be loaded.
+    - `fine` wether to load the fine labels (True), or the coarse labels (False). Fine labels are only available for a subset.
+    - `preprocess` is a function which, given a single label image returns a new label image.
+        For example, you can use `lambda x: downscale_labels(x, 8, 0.5)`.
     '''
     #Needed for the label definitions from CS.
     import labels as cs_labels
@@ -123,8 +123,7 @@ def load_labels(image_names, fine=True, downscale_factor=None, label_downscale_t
     #Create a map to map between loaded labels and training labels.
     label_map = np.asarray([t.trainId if t.trainId != 255 else -1 for t in cs_labels.labels], dtype=np.int8)
 
-    H, W = 1024//(downscale_factor or 1), 2048//(downscale_factor or 1)
-    y = np.empty((len(image_names), H, W), np.int8)
+    y = None
 
     #Find the corresponding label images
     for i, name in enumerate(image_names):
@@ -134,8 +133,15 @@ def load_labels(image_names, fine=True, downscale_factor=None, label_downscale_t
         if im is None:
             raise ValueError("Couldn't load image {}".format(name))
         im_mapped = label_map[im]
-        if downscale_factor is not None:
-            im_mapped = downscale_labels(im_mapped, downscale_factor, label_downscale_threshold)
+        if preprocess is not None:
+            im_mapped = preprocess(im_mapped)
+
+        # The first image determines the size of the output array for all.
+        # This allows preprocessing to fully determine size and dtype.
+        if y is None:
+            H, W = im_mapped.shape
+            y = np.empty((len(image_names), H, W), im_mapped.dtype)
+
         y[i] = im_mapped
 
     return y
