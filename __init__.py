@@ -104,6 +104,11 @@ def downscale_labels(labels, f, threshold, dtype=np.int8):
     return new_labels
 
 
+def upsample(im, factor):
+    """ Very fast upsampling of two last axes of `im`age by integer `factor`. """
+    return np.repeat(np.repeat(im, factor, axis=-1), factor, axis=-2)
+
+
 def load_labels(image_names, fine=True, downscale_factor=None, label_downscale_threshold=0.0):
     '''
     Load all label images for a set of rgb image names.
@@ -136,6 +141,3 @@ def load_labels(image_names, fine=True, downscale_factor=None, label_downscale_t
     return y
 
 
-def upsample(im, factor):
-    """ Very fast upsampling of two last axes of `im`age by integer `factor`. """
-    return np.repeat(np.repeat(im, factor, axis=-1), factor, axis=-2)
