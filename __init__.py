@@ -55,6 +55,8 @@ def load_images(image_names, downscale_factor=1):
     #Get all the images in the subfolders
     for i, imname in enumerate(image_names):
         im = cv2.imread(imname)
+        if im is None:
+            raise ValueError("Couldn't load image {}".format(imname))
         if downscale_factor != 1:
             im = cv2.resize(im, (W, H), interpolation=cv2.INTER_AREA)
         X[i] = np.rollaxis(im[:,:,::-1], 2)  # cv2 to theano (BGR to RGB and HWC to CHW)
